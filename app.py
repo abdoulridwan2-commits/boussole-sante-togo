@@ -73,7 +73,9 @@ header small{display:block;color:#cfe9e4;font-size:12px;font-weight:400}
 .moi{background:#d8f3c9;align-self:flex-end}
 form{display:flex;gap:8px;padding:10px;background:#f6f3ee}
 input{flex:1;height:44px;border:0;border-radius:22px;padding:0 16px;font-size:15px}
-button{width:44px;height:44px;border:0;border-radius:50%;background:#0B6B5E;color:#fff;font-size:18px;cursor:pointer}
+button{width:44px;height:44px;border:0;border-radius:50%;background:#0B6B5E;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
+#mic{background:#fff;color:#0B6B5E;border:2px solid #0B6B5E}
+#mic.actif{background:#B3261E;border-color:#B3261E;color:#fff}
 </style></head>
 <body><div id="app">
 <header>
@@ -81,12 +83,17 @@ button{width:44px;height:44px;border:0;border-radius:50%;background:#0B6B5E;colo
 <div>Boussole Santé Togo<small>assistant IA · ne remplace pas un médecin</small></div>
 </header>
 <div id="msgs"></div>
-<form id="f"><input id="t" placeholder="Message" autocomplete="off"><button type="submit" aria-label="Envoyer">&#10148;</button></form>
+<form id="f">
+<input id="t" placeholder="Message" autocomplete="off">
+<button type="button" id="mic" aria-label="Enregistrer un message vocal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+<button type="submit" aria-label="Envoyer">&#10148;</button>
+</form>
 </div>
 <script>
 const msgs = document.getElementById("msgs");
 const f = document.getElementById("f");
 const t = document.getElementById("t");
+const micro = document.getElementById("mic");
 
 function ajouter(texte, cls) {
   const d = document.createElement("div");
@@ -97,7 +104,7 @@ function ajouter(texte, cls) {
   return d;
 }
 
-ajouter("Bonjour ! Je peux vous aider à comprendre vos symptômes et à savoir quoi faire. Je ne remplace pas un médecin. En cas d'urgence, allez tout de suite au centre de santé le plus proche. Décrivez-moi ce qui ne va pas.", "bot");
+ajouter("Bonjour ! Je peux vous aider à comprendre vos symptômes et à savoir quoi faire. Je ne remplace pas un médecin. En cas d'urgence, allez tout de suite au centre de santé le plus proche. Vous pouvez écrire ou toucher le micro pour parler. Décrivez-moi ce qui ne va pas.", "bot");
 
 f.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -119,6 +126,86 @@ f.addEventListener("submit", async (e) => {
   }
   msgs.scrollTop = msgs.scrollHeight;
 });
+
+let enregistreur = null;
+let flux = null;
+let morceaux = [];
+let minuteur = null;
+
+async function demarrer() {
+  try {
+    flux = await navigator.mediaDevices.getUserMedia({audio: true});
+  } catch (err) {
+    ajouter("Le micro n'est pas autorisé. Autorisez-le dans le navigateur, puis réessayez.", "bot");
+    return;
+  }
+  morceaux = [];
+  enregistreur = new MediaRecorder(flux);
+  enregistreur.ondataavailable = (e) => morceaux.push(e.data);
+  enregistreur.onstop = envoyerAudio;
+  enregistreur.start();
+  micro.classList.add("actif");
+  micro.setAttribute("aria-label", "Arrêter et envoyer le message vocal");
+  t.placeholder = "Enregistrement... touchez le micro pour envoyer";
+  minuteur = setTimeout(arreter, 60000);
+}
+
+function arreter() {
+  clearTimeout(minuteur);
+  if (enregistreur && enregistreur.state === "recording") enregistreur.stop();
+  if (flux) flux.getTracks().forEach((p) => p.stop());
+  micro.classList.remove("actif");
+  micro.setAttribute("aria-label", "Enregistrer un message vocal");
+  t.placeholder = "Message";
+}
+
+micro.addEventListener("click", () => {
+  if (enregistreur && enregistreur.state === "recording") arreter();
+  else demarrer();
+});
+
+async function versWav(blob) {
+  const contexte = new AudioContext({sampleRate: 16000});
+  const tampon = await contexte.decodeAudioData(await blob.arrayBuffer());
+  const donnees = tampon.getChannelData(0);
+  const frequence = tampon.sampleRate;
+  const buf = new ArrayBuffer(44 + donnees.length * 2);
+  const v = new DataView(buf);
+  const ecrire = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ecrire(0, "RIFF"); v.setUint32(4, 36 + donnees.length * 2, true); ecrire(8, "WAVE"); ecrire(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, frequence, true); v.setUint32(28, frequence * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  ecrire(36, "data"); v.setUint32(40, donnees.length * 2, true);
+  for (let i = 0; i < donnees.length; i++) {
+    const s = Math.max(-1, Math.min(1, donnees[i]));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  contexte.close();
+  return new Blob([buf], {type: "audio/wav"});
+}
+
+async function envoyerAudio() {
+  const blob = new Blob(morceaux, {type: enregistreur.mimeType});
+  const bulle = ajouter("Message vocal...", "moi");
+  const attente = ajouter("...", "bot");
+  try {
+    const wav = await versWav(blob);
+    const r = await fetch("/audio", {
+      method: "POST",
+      headers: {"Content-Type": "audio/wav"},
+      body: wav
+    });
+    const d = await r.json();
+    if (d.transcription) bulle.textContent = "Message vocal : « " + d.transcription + " »";
+    else bulle.textContent = "Message vocal";
+    attente.textContent = d.reponse;
+  } catch (err) {
+    bulle.textContent = "Message vocal";
+    attente.textContent = "Impossible d'envoyer le message vocal. Réessayez ou écrivez votre message.";
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+}
 </script></body></html>"""
 
 
@@ -135,23 +222,21 @@ def config_pour(modele):
     )
 
 
+def config_simple(modele):
+    if "lite" in modele:
+        return types.GenerateContentConfig(max_output_tokens=500)
+    return types.GenerateContentConfig(
+        max_output_tokens=500,
+        thinking_config=types.ThinkingConfig(thinking_level="LOW"),
+    )
+
+
 historique = []
 app = Flask(__name__)
 
 
-@app.get("/")
-def accueil():
-    return PAGE
-
-
-@app.post("/chat")
-def chat():
-    question = (request.get_json(silent=True) or {}).get("message", "").strip()
-    if not question:
-        return jsonify({"reponse": "Écrivez votre message d'abord."}), 400
-
+def repondre(question):
     message = types.Content(role="user", parts=[types.Part(text=question)])
-
     for modele in MODELES:
         try:
             r = client.models.generate_content(
@@ -166,11 +251,70 @@ def chat():
                     types.Content(role="model", parts=[types.Part(text=texte)])
                 )
                 print(f"[{modele}] ok")
-                return jsonify({"reponse": texte})
+                return texte
         except Exception as erreur:
             print(f"[{modele}] échec : {str(erreur)[:200]}")
+    return None
 
-    return jsonify({"reponse": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
+
+def transcrire(audio_bytes):
+    consigne = (
+        "Transcris fidèlement ce message vocal. Réponds uniquement par la "
+        "transcription, dans la langue parlée, sans commentaire. "
+        "Si tu n'entends aucune parole, réponds exactement INAUDIBLE."
+    )
+    for modele in MODELES:
+        try:
+            r = client.models.generate_content(
+                model=modele,
+                contents=[
+                    types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
+                    consigne,
+                ],
+                config=config_simple(modele),
+            )
+            texte = (r.text or "").strip()
+            if texte:
+                print(f"[{modele}] transcription ok")
+                return "" if "INAUDIBLE" in texte.upper() else texte
+        except Exception as erreur:
+            print(f"[{modele}] transcription échec : {str(erreur)[:200]}")
+    return None
+
+
+@app.get("/")
+def accueil():
+    return PAGE
+
+
+@app.post("/chat")
+def chat():
+    question = (request.get_json(silent=True) or {}).get("message", "").strip()
+    if not question:
+        return jsonify({"reponse": "Écrivez votre message d'abord."}), 400
+
+    texte = repondre(question)
+    if texte is None:
+        return jsonify({"reponse": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
+    return jsonify({"reponse": texte})
+
+
+@app.post("/audio")
+def audio():
+    donnees = request.get_data()
+    if len(donnees) < 2000:
+        return jsonify({"transcription": "", "reponse": "Je n'ai rien entendu. Réessayez en parlant plus près du micro."}), 400
+
+    transcription = transcrire(donnees)
+    if transcription is None:
+        return jsonify({"transcription": "", "reponse": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
+    if not transcription:
+        return jsonify({"transcription": "", "reponse": "Je n'ai pas bien entendu votre message. Réessayez, ou écrivez-le."})
+
+    texte = repondre(transcription)
+    if texte is None:
+        return jsonify({"transcription": transcription, "reponse": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
+    return jsonify({"transcription": transcription, "reponse": texte})
 
 
 if __name__ == "__main__":
