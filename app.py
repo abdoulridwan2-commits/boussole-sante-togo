@@ -71,9 +71,12 @@ header small{display:block;color:#cfe9e4;font-size:12px;font-weight:400}
 .m{max-width:80%;padding:8px 10px;border-radius:10px;font-size:15px;line-height:1.4;white-space:pre-wrap;color:#1b2b29}
 .bot{background:#fff;align-self:flex-start}
 .moi{background:#d8f3c9;align-self:flex-end}
-form{display:flex;gap:8px;padding:10px;background:#f6f3ee}
-input{flex:1;height:44px;border:0;border-radius:22px;padding:0 16px;font-size:15px}
+#astuce{display:none;padding:6px 14px;background:#fff8dc;color:#4a3b00;font-size:13px}
+#astuce.visible{display:block}
+form{display:flex;align-items:flex-end;gap:8px;padding:10px;background:#f6f3ee}
+textarea{flex:1;min-height:44px;max-height:120px;border:0;border-radius:22px;padding:11px 16px;font-size:15px;font-family:inherit;line-height:1.3;resize:none}
 button{width:44px;height:44px;border:0;border-radius:50%;background:#0B6B5E;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
+button:disabled{opacity:.5;cursor:default}
 #mic{background:#fff;color:#0B6B5E;border:2px solid #0B6B5E}
 #mic.actif{background:#B3261E;border-color:#B3261E;color:#fff}
 </style></head>
@@ -83,10 +86,11 @@ button{width:44px;height:44px;border:0;border-radius:50%;background:#0B6B5E;colo
 <div>Boussole Santé Togo<small>assistant IA · ne remplace pas un médecin</small></div>
 </header>
 <div id="msgs"></div>
+<div id="astuce" role="status"></div>
 <form id="f">
-<input id="t" placeholder="Message" autocomplete="off">
+<textarea id="t" rows="1" placeholder="Message" aria-label="Message"></textarea>
 <button type="button" id="mic" aria-label="Enregistrer un message vocal"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
-<button type="submit" aria-label="Envoyer">&#10148;</button>
+<button type="submit" id="envoi" aria-label="Envoyer">&#10148;</button>
 </form>
 </div>
 <script>
@@ -94,6 +98,8 @@ const msgs = document.getElementById("msgs");
 const f = document.getElementById("f");
 const t = document.getElementById("t");
 const micro = document.getElementById("mic");
+const envoi = document.getElementById("envoi");
+const astuce = document.getElementById("astuce");
 
 function ajouter(texte, cls) {
   const d = document.createElement("div");
@@ -104,13 +110,37 @@ function ajouter(texte, cls) {
   return d;
 }
 
-ajouter("Bonjour ! Je peux vous aider à comprendre vos symptômes et à savoir quoi faire. Je ne remplace pas un médecin. En cas d'urgence, allez tout de suite au centre de santé le plus proche. Vous pouvez écrire ou toucher le micro pour parler. Décrivez-moi ce qui ne va pas.", "bot");
+function ajuster() {
+  t.style.height = "auto";
+  t.style.height = Math.min(t.scrollHeight, 120) + "px";
+}
+
+function montrerAstuce(texte) {
+  astuce.textContent = texte;
+  astuce.classList.add("visible");
+}
+
+function cacherAstuce() {
+  astuce.classList.remove("visible");
+}
+
+ajouter("Bonjour ! Je peux vous aider à comprendre vos symptômes et à savoir quoi faire. Je ne remplace pas un médecin. En cas d'urgence, allez tout de suite au centre de santé le plus proche. Vous pouvez écrire ou toucher le micro pour parler : le texte s'affichera pour que vous puissiez le corriger avant d'envoyer. Décrivez-moi ce qui ne va pas.", "bot");
+
+t.addEventListener("input", ajuster);
+t.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    f.requestSubmit();
+  }
+});
 
 f.addEventListener("submit", async (e) => {
   e.preventDefault();
   const q = t.value.trim();
   if (!q) return;
   t.value = "";
+  ajuster();
+  cacherAstuce();
   ajouter(q, "moi");
   const attente = ajouter("...", "bot");
   try {
@@ -139,14 +169,15 @@ async function demarrer() {
     ajouter("Le micro n'est pas autorisé. Autorisez-le dans le navigateur, puis réessayez.", "bot");
     return;
   }
+  cacherAstuce();
   morceaux = [];
   enregistreur = new MediaRecorder(flux);
   enregistreur.ondataavailable = (e) => morceaux.push(e.data);
-  enregistreur.onstop = envoyerAudio;
+  enregistreur.onstop = transcrireAudio;
   enregistreur.start();
   micro.classList.add("actif");
-  micro.setAttribute("aria-label", "Arrêter et envoyer le message vocal");
-  t.placeholder = "Enregistrement... touchez le micro pour envoyer";
+  micro.setAttribute("aria-label", "Arrêter l'enregistrement");
+  t.placeholder = "Enregistrement... touchez le micro pour arrêter";
   minuteur = setTimeout(arreter, 60000);
 }
 
@@ -156,7 +187,6 @@ function arreter() {
   if (flux) flux.getTracks().forEach((p) => p.stop());
   micro.classList.remove("actif");
   micro.setAttribute("aria-label", "Enregistrer un message vocal");
-  t.placeholder = "Message";
 }
 
 micro.addEventListener("click", () => {
@@ -185,26 +215,37 @@ async function versWav(blob) {
   return new Blob([buf], {type: "audio/wav"});
 }
 
-async function envoyerAudio() {
+async function transcrireAudio() {
   const blob = new Blob(morceaux, {type: enregistreur.mimeType});
-  const bulle = ajouter("Message vocal...", "moi");
-  const attente = ajouter("...", "bot");
+  t.value = "";
+  ajuster();
+  t.placeholder = "Transcription en cours...";
+  t.disabled = true;
+  micro.disabled = true;
+  envoi.disabled = true;
   try {
     const wav = await versWav(blob);
-    const r = await fetch("/audio", {
+    const r = await fetch("/transcrire", {
       method: "POST",
       headers: {"Content-Type": "audio/wav"},
       body: wav
     });
     const d = await r.json();
-    if (d.transcription) bulle.textContent = "Message vocal : « " + d.transcription + " »";
-    else bulle.textContent = "Message vocal";
-    attente.textContent = d.reponse;
+    if (d.transcription) {
+      t.value = d.transcription;
+      ajuster();
+      montrerAstuce("Vérifiez le texte, corrigez-le si besoin, puis touchez Envoyer.");
+    } else {
+      ajouter(d.erreur || "Je n'ai pas bien entendu votre message. Réessayez, ou écrivez-le.", "bot");
+    }
   } catch (err) {
-    bulle.textContent = "Message vocal";
-    attente.textContent = "Impossible d'envoyer le message vocal. Réessayez ou écrivez votre message.";
+    ajouter("Impossible de transcrire le message vocal. Réessayez ou écrivez votre message.", "bot");
   }
-  msgs.scrollTop = msgs.scrollHeight;
+  t.disabled = false;
+  micro.disabled = false;
+  envoi.disabled = false;
+  t.placeholder = "Message";
+  t.focus();
 }
 </script></body></html>"""
 
@@ -299,22 +340,18 @@ def chat():
     return jsonify({"reponse": texte})
 
 
-@app.post("/audio")
-def audio():
+@app.post("/transcrire")
+def transcrire_route():
     donnees = request.get_data()
     if len(donnees) < 2000:
-        return jsonify({"transcription": "", "reponse": "Je n'ai rien entendu. Réessayez en parlant plus près du micro."}), 400
+        return jsonify({"transcription": "", "erreur": "Je n'ai rien entendu. Réessayez en parlant plus près du micro."}), 400
 
     transcription = transcrire(donnees)
     if transcription is None:
-        return jsonify({"transcription": "", "reponse": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
+        return jsonify({"transcription": "", "erreur": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
     if not transcription:
-        return jsonify({"transcription": "", "reponse": "Je n'ai pas bien entendu votre message. Réessayez, ou écrivez-le."})
-
-    texte = repondre(transcription)
-    if texte is None:
-        return jsonify({"transcription": transcription, "reponse": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
-    return jsonify({"transcription": transcription, "reponse": texte})
+        return jsonify({"transcription": "", "erreur": "Je n'ai pas bien entendu votre message. Réessayez, ou écrivez-le."})
+    return jsonify({"transcription": transcription})
 
 
 if __name__ == "__main__":
