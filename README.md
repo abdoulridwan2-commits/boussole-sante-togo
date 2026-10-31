@@ -1,4 +1,4 @@
-# Assistant Santé – IA d'orientation en santé
+# Boussole Santé Togo – IA d'orientation en santé
 
 Assistant conversationnel qui aide les personnes au Togo à comprendre leurs symptômes et à savoir quoi faire ensuite : soins à la maison, consultation ou urgence. Il est pensé pour WhatsApp, et une version de test fonctionne déjà dans le navigateur.
 
@@ -43,8 +43,8 @@ Beaucoup de personnes n'ont pas un accès facile à une information de santé fi
 ## Installation
 
 ```bash
-git clone https://github.com/abdoulridwan2-commits/assistant-sante.git
-cd assistant-sante
+git clone https://github.com/abdoulridwan2-commits/boussole-sante-togo.git
+cd boussole-sante-togo
 python -m venv venv
 venv\Scripts\activate        # Mac/Linux : source venv/bin/activate
 pip install -r requirements.txt

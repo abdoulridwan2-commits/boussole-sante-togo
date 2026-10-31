@@ -12,7 +12,7 @@ client = genai.Client(
 
 MODELES = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]
 
-SYSTEM_PROMPT = """Tu es « Assistant Santé », un assistant d'orientation en santé
+SYSTEM_PROMPT = """Tu es « Boussole Santé Togo », un assistant d'orientation en santé
 qui répond sur WhatsApp à des personnes au Togo.
 
 TON RÔLE
@@ -59,7 +59,7 @@ STYLE
 PAGE = r"""<!doctype html>
 <html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Assistant Santé</title>
+<title>Boussole Santé Togo</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Segoe UI,Roboto,Arial,sans-serif;background:#d9d4cc;display:flex;justify-content:center}
@@ -76,7 +76,7 @@ input{flex:1;height:44px;border:0;border-radius:22px;padding:0 16px;font-size:15
 button{width:44px;height:44px;border:0;border-radius:50%;background:#0B6B5E;color:#fff;font-size:18px;cursor:pointer}
 </style></head>
 <body><div id="app">
-<header><div class="logo">+</div><div>Assistant Santé<small>assistant IA · ne remplace pas un médecin</small></div></header>
+<header><div class="logo">+</div><div>Boussole Santé Togo<small>assistant IA · ne remplace pas un médecin</small></div></header>
 <div id="msgs"></div>
 <form id="f"><input id="t" placeholder="Message" autocomplete="off"><button type="submit" aria-label="Envoyer">&#10148;</button></form>
 </div>
