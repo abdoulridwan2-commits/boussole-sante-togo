@@ -65,7 +65,7 @@ PAGE = r"""<!doctype html>
 body{margin:0;font-family:Segoe UI,Roboto,Arial,sans-serif;background:#d9d4cc;display:flex;justify-content:center}
 #app{width:100%;max-width:480px;height:100vh;display:flex;flex-direction:column;background:#efe9df}
 header{background:#0B6B5E;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px;font-weight:700}
-.logo{width:40px;height:40px;border-radius:50%;background:#fff;color:#0B6B5E;display:flex;align-items:center;justify-content:center;font-size:24px}
+header svg{flex:none}
 header small{display:block;color:#cfe9e4;font-size:12px;font-weight:400}
 #msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
 .m{max-width:80%;padding:8px 10px;border-radius:10px;font-size:15px;line-height:1.4;white-space:pre-wrap;color:#1b2b29}
@@ -76,7 +76,10 @@ input{flex:1;height:44px;border:0;border-radius:22px;padding:0 16px;font-size:15
 button{width:44px;height:44px;border:0;border-radius:50%;background:#0B6B5E;color:#fff;font-size:18px;cursor:pointer}
 </style></head>
 <body><div id="app">
-<header><div class="logo">+</div><div>Boussole Santé Togo<small>assistant IA · ne remplace pas un médecin</small></div></header>
+<header>
+<svg width="40" height="40" viewBox="0 0 120 120" role="img" aria-label="Logo Boussole Santé Togo"><circle cx="60" cy="60" r="60" fill="#fff"/><circle cx="60" cy="60" r="50" fill="none" stroke="#0B6B5E" stroke-opacity=".35" stroke-width="2"/><path d="M60 18L67 53L102 60L67 67L60 102L53 67L18 60L53 53Z" fill="#0B6B5E" stroke="#0B6B5E" stroke-width="2" stroke-linejoin="round"/><path d="M60 18L67 53L53 53Z" fill="#3BB59A" stroke="#3BB59A" stroke-width="2" stroke-linejoin="round"/><circle cx="60" cy="60" r="5" fill="#fff" stroke="#0B6B5E" stroke-width="2"/></svg>
+<div>Boussole Santé Togo<small>assistant IA · ne remplace pas un médecin</small></div>
+</header>
 <div id="msgs"></div>
 <form id="f"><input id="t" placeholder="Message" autocomplete="off"><button type="submit" aria-label="Envoyer">&#10148;</button></form>
 </div>
