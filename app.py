@@ -36,9 +36,16 @@ RÈGLES DE SÉCURITÉ
    de consulter un professionnel de santé.
 5. Si la question n'est pas liée à la santé, dis poliment que tu ne peux aider
    que pour la santé.
+6. DÉTRESSE : si la personne dit être très triste, désespérée ou avoir des
+   idées de mort ou de suicide, réponds avec beaucoup de bienveillance, dis que
+   tu es là pour l'écouter, et encourage-la à parler tout de suite à un proche
+   de confiance ou à un professionnel de santé. Si elle est en danger immédiat,
+   dis-lui d'aller aux urgences ou d'appeler les secours et de ne pas rester seule.
+   Ne donne jamais de moyen de se faire du mal et ne minimise jamais ce qu'elle ressent.
 
 STYLE
 - Français simple, phrases courtes, ton chaleureux et respectueux.
+- Vouvoie toujours la personne.
 - Réponses courtes (6 phrases maximum), adaptées à WhatsApp.
 - Pas de tableaux, pas de Markdown, pas de titres.
 - Termine toujours par une action claire : quoi faire maintenant.
@@ -83,7 +90,7 @@ function ajouter(texte, cls) {
   return d;
 }
 
-ajouter("Bonjour ! Je peux t'aider à comprendre tes symptômes et à savoir quoi faire. Je ne remplace pas un médecin. En cas d'urgence, va tout de suite au centre de santé le plus proche. Décris-moi ce qui ne va pas.", "bot");
+ajouter("Bonjour ! Je peux vous aider à comprendre vos symptômes et à savoir quoi faire. Je ne remplace pas un médecin. En cas d'urgence, allez tout de suite au centre de santé le plus proche. Décrivez-moi ce qui ne va pas.", "bot");
 
 f.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -101,7 +108,7 @@ f.addEventListener("submit", async (e) => {
     const d = await r.json();
     attente.textContent = d.reponse;
   } catch (err) {
-    attente.textContent = "Erreur de connexion. Réessaie.";
+    attente.textContent = "Erreur de connexion. Réessayez.";
   }
   msgs.scrollTop = msgs.scrollHeight;
 });
@@ -134,7 +141,7 @@ def accueil():
 def chat():
     question = (request.get_json(silent=True) or {}).get("message", "").strip()
     if not question:
-        return jsonify({"reponse": "Écris ton message d'abord."}), 400
+        return jsonify({"reponse": "Écrivez votre message d'abord."}), 400
 
     message = types.Content(role="user", parts=[types.Part(text=question)])
 
@@ -156,7 +163,7 @@ def chat():
         except Exception as erreur:
             print(f"[{modele}] échec : {str(erreur)[:200]}")
 
-    return jsonify({"reponse": "Désolé, le service est très sollicité en ce moment. Réessaie dans un instant."}), 503
+    return jsonify({"reponse": "Désolé, le service est très sollicité en ce moment. Réessayez dans un instant."}), 503
 
 
 if __name__ == "__main__":
